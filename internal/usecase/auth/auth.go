@@ -137,7 +137,7 @@ func (as *authService) AuthViaToken(ctx context.Context, in *AuthViaTokenInput) 
 		}
 		return nil, fmt.Errorf("failed parse token: %w", err)
 	}
-	user, err := as.userSerice.FindByID(ctx, accPayload.UserID)
+	user, err := as.userSerice.GetByID(ctx, accPayload.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed find user %s: %w", accPayload.UserID, err)
 	}

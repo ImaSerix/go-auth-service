@@ -12,7 +12,7 @@ import (
 type UserService interface {
 	Register(ctx context.Context, username, password, role string) (*domain.User, error)
 	ValidateCredentials(ctx context.Context, username, password string) (*domain.User, error)
-	FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 }
 
 type SessionService interface {

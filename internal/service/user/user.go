@@ -42,7 +42,7 @@ func (us *userService) Register(ctx context.Context, usernmae, password, role st
 	return user, nil
 }
 
-func (us *userService) ValidateCredentials(ctx context.Context, password, username string) (*domain.User, error) {
+func (us *userService) ValidateCredentials(ctx context.Context, username, password string) (*domain.User, error) {
 	user, err := us.users.FindByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
