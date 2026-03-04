@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ImaSerix/password-safe-api/internal/domain"
 	"github.com/ImaSerix/password-safe-api/internal/repository"
@@ -21,52 +22,46 @@ func NewSessionRepository(db *sql.DB) *SessionRepository {
 	}
 }
 
-func (sr *SessionRepository) Create(ctx context.Context, session *domain.Session) (*domain.Session, error) {
-	_, err := sr.db.ExecContext(ctx, "INSERT INTO sessions (id, user_id, refresh_token_hash, expires_at, revoked_at) VALUES ($1, $2, $3, $4, $5)", session.ID, session.UserID, session.RefreshTokenHash, session.ExpiresAt, session.RevokedAt)
+func (sr *SessionRepository) Upsert(ctx context.Context, session *domain.Session) error {
+	_, err := sr.db.ExecContext(ctx, `INSERT INTO sessions (user_id, refresh_token_hash, expires_at, revoked_at) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET refresh_token_hash = $2, expires_at = $3`, session.UserID, session.RefreshTokenHash, session.ExpiresAt, session.RevokedAt)
 	if err != nil {
-		return nil, fmt.Errorf("insert session: %w", err)
-	}
-	return session, nil
-}
-func (sr *SessionRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Session, error) {
-	var session domain.Session
-	row := sr.db.QueryRowContext(ctx, "SELECT id, user_id, refresh_token_hash, expires_at, revoked_at FROM users WHERE id = $1", id)
-
-	if err := row.Scan(&session.ID, &session.UserID, &session.RefreshTokenHash, &session.ExpiresAt, &session.RevokedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, repository.ErrNotFound
-		}
-		return nil, fmt.Errorf("find session: %w", err)
-	}
-	return &session, nil
-}
-
-func (sr *SessionRepository) FindByUserID(ctx context.Context, userID uuid.UUID) (*domain.Session, error) {
-	var session domain.Session
-	row := sr.db.QueryRowContext(ctx, "SELECT id, user_id, refresh_token_hash, expires_at, revoked_at FROM users WHERE user_id = $1", userID)
-
-	if err := row.Scan(&session.ID, &session.UserID, &session.RefreshTokenHash, &session.ExpiresAt, &session.RevokedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, repository.ErrNotFound
-		}
-		return nil, fmt.Errorf("find session: %w", err)
-	}
-	return &session, nil
-}
-
-func (sr *SessionRepository) Update(ctx context.Context, session *domain.Session) error {
-	_, err := sr.db.ExecContext(ctx, "UPDATE sessions SET expires_at = $1, revoked_at = $2, refresh_token_hash = $3 WHERE id = $4", session.ExpiresAt, session.RevokedAt, session.RefreshTokenHash, session.ID)
-
-	if err != nil {
-		return fmt.Errorf("update session: %w", err)
+		return fmt.Errorf("upser session: %w", err)
 	}
 	return nil
 }
-func (sr *SessionRepository) Delete(ctx context.Context, session *domain.Session) error {
-	_, err := sr.db.ExecContext(ctx, "DELETE FROM sessions WHERE id = $1", session.ID)
+func (sr *SessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Session, error) {
+	var session domain.Session
+	row := sr.db.QueryRowContext(ctx, "SELECT user_id, refresh_token_hash, expires_at, revoked_at FROM users WHERE user_id = $1", userID)
 
+	if err := row.Scan(&session.UserID, &session.RefreshTokenHash, &session.ExpiresAt, &session.RevokedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("find session: %w", err)
+	}
+	return &session, nil
+}
+func (sr *SessionRepository) CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) error {
+	res, err := sr.db.ExecContext(ctx, "UPDATE sessions SET refresh_token_hash = $1, expires_at = $2 WHERE user_id = $3 AND refresh_token_hash = $4", newHash, expiresAt, userID, oldHash)
 	if err != nil {
-		return fmt.Errorf("delete session: %w", err)
+		return fmt.Errorf("compareAndSwapRefresh: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("compareAndSwapRefresh: %w", err)
+	}
+
+	if rows == 0 {
+		return repository.ErrInvalidRefresh
+	}
+
+	return nil
+}
+func (sr *SessionRepository) ClearRefreshByUserID(ctx context.Context, userID uuid.UUID) error {
+	_, err := sr.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = $1", userID)
+	if err != nil {
+		return fmt.Errorf("clearRefreshByUserID: %w", err)
 	}
 	return nil
 }

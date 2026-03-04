@@ -54,7 +54,7 @@ func (ur *UserRepository) FindByUsername(ctx context.Context, username string) (
 	return &user, nil
 }
 
-func (ur *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (ur *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	var user domain.User
 	row := ur.db.QueryRowContext(ctx, "SELECT id, username, password_hash, role, created_at FROM users WHERE id = $1", id)
 

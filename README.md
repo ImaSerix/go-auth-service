@@ -96,7 +96,7 @@ Response:
 
 Code | Body | Description
 --- | --- | ---
-201 | {"id": UUID, "createdAt": Timestamp} | User created
+201 | {"id": UUID} | User created
 400 | error text | Invalid input
 409 | "username taken" | Username already exists
 500 | "internal error" | Server error
@@ -195,7 +195,7 @@ Response:
 
 Code | Body | Description
 --- | --- | ---
-200 | {"userId": UUID, "username": string, "roles": ["role"]} | Token valid
+200 | {"id": UUID, "username": string, "roles": ["role"]} | Token valid
 400 | "invalid token" | Invalid or expired token
 500 | "internal error" | Server error
 

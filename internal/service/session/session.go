@@ -2,10 +2,12 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ImaSerix/password-safe-api/internal/domain"
+	"github.com/ImaSerix/password-safe-api/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -31,7 +33,7 @@ func (ss *sessionService) Start(ctx context.Context, userID uuid.UUID, refreshTo
 		RefreshTokenHash: tokenHash,
 		ExpiresAt:        expiresAt,
 	}
-	_, err = ss.sessions.Upsert(ctx, &session)
+	err = ss.sessions.Upsert(ctx, &session)
 	if err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
@@ -47,12 +49,12 @@ func (ss *sessionService) Rotate(ctx context.Context, userID uuid.UUID, oldToken
 		return fmt.Errorf("rotate: %w", err)
 	}
 
-	session, err := ss.sessions.CompareAndSwapRefresh(ctx, userID, oldHash, newHash, expirestAt)
+	err = ss.sessions.CompareAndSwapRefresh(ctx, userID, oldHash, newHash, expirestAt)
 	if err != nil {
+		if errors.Is(err, repository.ErrInvalidRefresh) {
+			return ErrTokenMismatch
+		}
 		return fmt.Errorf("rotate: %w", err)
-	}
-	if session == nil {
-		return ErrTokenMismatch
 	}
 
 	return nil

@@ -18,14 +18,6 @@ import (
 // TODO Всё таки добовать Role в accessToken, дабы сэкономить кол-во запросов к базе данных
 // TODO Валидацию может быть вынести в метод, имеется ввиду в input типы
 
-type AuthService interface {
-	Register(ctx context.Context, in *RegisterInput) (*auth.UserDTO, error)
-	Login(ctx context.Context, in *LoginInput) (*auth.UserDTO, *auth.TokenDTO, error)
-	AuthViaToken(ctx context.Context, in *AuthViaTokenInput) (*auth.UserDTO, error)
-	Refresh(ctx context.Context, in *RefreshInput) (*auth.TokenDTO, error)
-	Logout(ctx context.Context, in *LogoutInput) error
-}
-
 type authService struct {
 	userSerice     UserService
 	sessionService SessionService
@@ -134,6 +126,9 @@ func (as *authService) AuthViaToken(ctx context.Context, in *AuthViaTokenInput) 
 	if err != nil {
 		if errors.Is(err, tokenmanager.ErrInvalidToken) {
 			return nil, ErrInvalidToken
+		}
+		if errors.Is(err, tokenmanager.ErrTokenExpired) {
+			return nil, ErrTokenExpired
 		}
 		return nil, fmt.Errorf("failed parse token: %w", err)
 	}

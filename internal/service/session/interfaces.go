@@ -9,9 +9,9 @@ import (
 )
 
 type SessionRepository interface {
-	Upsert(ctx context.Context, session *domain.Session) (*domain.Session, error)
+	Upsert(ctx context.Context, session *domain.Session) error
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Session, error)
-	CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) (*domain.Session, error)
+	CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) error
 	ClearRefreshByUserID(ctx context.Context, userID uuid.UUID) error
 }
 

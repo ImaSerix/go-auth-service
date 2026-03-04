@@ -10,4 +10,5 @@ var (
 	ErrUsernameTaken      = errors.New("username taken")
 	ErrInvalidToken       = errors.New("invalid token")
 	ErrTokenReuse         = errors.New("token reuse")
+	ErrTokenExpired       = errors.New("token expired")
 )

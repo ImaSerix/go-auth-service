@@ -9,6 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type AuthService interface {
+	Register(ctx context.Context, in *RegisterInput) (*auth.UserDTO, error)
+	Login(ctx context.Context, in *LoginInput) (*auth.UserDTO, *auth.TokenDTO, error)
+	AuthViaToken(ctx context.Context, in *AuthViaTokenInput) (*auth.UserDTO, error)
+	Refresh(ctx context.Context, in *RefreshInput) (*auth.TokenDTO, error)
+	Logout(ctx context.Context, in *LogoutInput) error
+}
+
 type UserService interface {
 	Register(ctx context.Context, username, password, role string) (*domain.User, error)
 	ValidateCredentials(ctx context.Context, username, password string) (*domain.User, error)
