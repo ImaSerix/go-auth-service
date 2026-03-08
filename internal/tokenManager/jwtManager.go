@@ -87,7 +87,7 @@ func (tm *JWTManager) ParseAccessToken(tokenString string) (*auth.AccessTokenPay
 		return nil, ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(*accessClaims)
+	claims, ok := token.Claims.(accessClaims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}
@@ -111,7 +111,7 @@ func (tm *JWTManager) ParseRefreshToken(tokenString string) (*auth.RefreshTokenP
 		return nil, ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(*refreshClaims)
+	claims, ok := token.Claims.(refreshClaims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}

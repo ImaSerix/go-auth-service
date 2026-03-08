@@ -156,6 +156,9 @@ func (as *authService) Refresh(ctx context.Context, in *RefreshInput) (*auth.Tok
 		if errors.Is(err, tokenmanager.ErrInvalidToken) {
 			return nil, ErrInvalidToken
 		}
+		if errors.Is(err, tokenmanager.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		}
 		return nil, fmt.Errorf("failed parse token: %w", err)
 	}
 	refreshDTO, err := as.tokenManager.GenerateRefreshToken(refPayload.UserID)

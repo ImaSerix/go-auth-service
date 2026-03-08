@@ -22,13 +22,13 @@ func New(users UserRepository, hasher Hasher) *userService {
 	}
 }
 
-func (us *userService) Register(ctx context.Context, usernmae, password, role string) (*domain.User, error) {
+func (us *userService) Register(ctx context.Context, username, password, role string) (*domain.User, error) {
 	passwordHash, err := us.hasher.Hash(password)
 	if err != nil {
 		return nil, fmt.Errorf("register: %w", err)
 	}
 	u := domain.User{
-		Username:     usernmae,
+		Username:     username,
 		PasswordHash: passwordHash,
 		Role:         role,
 	}

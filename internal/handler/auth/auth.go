@@ -16,6 +16,8 @@ func (ah *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logError(r, err)
+
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
@@ -30,13 +32,15 @@ func (ah *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidUsername), errors.Is(err, auth.ErrInvalidPassword), errors.Is(err, auth.ErrInvalidRole):
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "invalid credentials", http.StatusBadRequest)
 			return
 		case errors.Is(err, auth.ErrUsernameTaken):
-			http.Error(w, err.Error(), http.StatusConflict)
+			http.Error(w, "username taken", http.StatusConflict)
 			return
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logError(r, err)
+
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
@@ -54,6 +58,8 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logError(r, err)
+
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
@@ -67,13 +73,15 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		case errors.Is(err, auth.ErrTokenReuse):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "token reuse", http.StatusUnauthorized)
 			return
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logError(r, err)
+
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -86,7 +94,7 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		RefreshExp:   *tokens.RefreshExp,
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -94,6 +102,8 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req LogoutRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logError(r, err)
+
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
@@ -106,10 +116,12 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidToken):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logError(r, err)
+
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
@@ -119,7 +131,7 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Status: "logged out",
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -127,6 +139,8 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logError(r, err)
+
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
@@ -139,13 +153,15 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		case errors.Is(err, auth.ErrTokenReuse):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "token reuse", http.StatusUnauthorized)
 			return
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logError(r, err)
+
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -157,7 +173,7 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		RefreshExp:   *tokens.RefreshExp,
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -165,6 +181,8 @@ func (ah *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	var req ValidateRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logError(r, err)
+
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
@@ -177,13 +195,15 @@ func (ah *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidToken):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		case errors.Is(err, auth.ErrTokenExpired):
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "token expired", http.StatusUnauthorized)
 			return
 		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logError(r, err)
+
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -194,6 +214,6 @@ func (ah *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 		Roles:    []string{user.Role},
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
