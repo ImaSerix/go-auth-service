@@ -93,9 +93,6 @@ func (as *authService) Login(ctx context.Context, in *LoginInput) (*auth.UserDTO
 	}
 	err = as.sessionService.Start(ctx, u.ID, refPayload.RefreshToken, refPayload.RefreshExp)
 	if err != nil {
-		if errors.Is(err, session.ErrTokenMismatch) {
-			return nil, nil, ErrTokenReuse
-		}
 		return nil, nil, fmt.Errorf("failed to start session: %w", err)
 	}
 	accPayload, err := as.tokenManager.GenerateAccessToken(u.ID)

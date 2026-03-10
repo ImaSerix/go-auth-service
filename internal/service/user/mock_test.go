@@ -37,8 +37,9 @@ func (fur *fakeUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 }
 
 type fakeHasher struct {
-	err    error
-	called bool
+	err       error
+	called    bool
+	verifyRes bool
 }
 
 func (fh *fakeHasher) Hash(data string) (string, error) {
@@ -53,5 +54,5 @@ func (fh *fakeHasher) Verify(data, hash string) (bool, error) {
 	if fh.err != nil {
 		return false, fh.err
 	}
-	return true, nil
+	return fh.verifyRes, nil
 }
