@@ -73,9 +73,7 @@ External services may call `/auth/validate` to retrieve user context instead of 
 ---
 
 ## API
-
 ### POST /auth/register
-
 Creates a new user.
 
 Request:
@@ -94,17 +92,17 @@ Constraints:
 
 Response:
 
-Code | Body | Description
---- | --- | ---
-201 | {"id": UUID} | User created
-400 | error text | Invalid input
-409 | "username taken" | Username already exists
-500 | "internal error" | Server error
+| Code |         Body          | Description              |
+| ---- | :-------------------: | ------------------------ |
+| 201  |     {"id": UUID}      | User created             |
+| 400  |  "invalid json body"  | Invalid request body     |
+| 400  | "invalid credentials" | Invalid input in request |
+| 409  |   "username taken"    | Username already exists  |
+| 500  |   "internal error"    | Server error             |
 
 ---
 
 ### POST /auth/login
-
 Authenticates user and issues tokens.
 
 Request:
@@ -121,16 +119,16 @@ Constraints:
 
 Response:
 
-Code | Body | Description
---- | --- | ---
-200 | {"id": UUID, "accessToken": JWT, "accessTokenExp": datetime, "refreshToken": JWT, "refreshTokenExp": datetime} | Successful authentication
-400 | "invalid credentials" | Invalid authentication data
-500 | "internal error" | Server error
+| Code | Body                                                                                                           | Description                 |
+| ---- | -------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 200  | {"id": UUID, "accessToken": JWT, "accessTokenExp": datetime, "refreshToken": JWT, "refreshTokenExp": datetime} | Successful authentication   |
+| 400  | "invalid json body"                                                                                            | Invalid request body        |
+| 401  | "invalid credentials"                                                                                          | Invalid authentication data |
+| 500  | "internal error"                                                                                               | Server error                |
 
 ---
 
 ### POST /auth/logout
-
 Invalidates the session associated with a refresh token.
 
 Request:
@@ -145,16 +143,17 @@ Constraints:
 
 Response:
 
-Code | Body | Description
---- | --- | ---
-200 | {"status": "logged out"} | Successful logout
-400 | "invalid token" | Invalid token
-500 | "internal error" | Server error
+| Code | Body                     | Description          |
+| ---- | ------------------------ | -------------------- |
+| 200  | {"status": "logged out"} | Successful logout    |
+| 400  | "invalid json body"      | Invalid request body |
+| 401  | "invalid token"          | Invalid token        |
+| 401  | "token expired"          | Token expired        |
+| 500  | "internal error"         | Server error         |
 
 ---
 
 ### POST /auth/refresh
-
 Issues a new access token using a refresh token.
 
 Request:
@@ -169,16 +168,18 @@ Constraints:
 
 Response:
 
-Code | Body | Description
---- | --- | ---
-200 | {"accessToken": JWT, "accessTokenExp": datetime} | Access token refreshed
-400 | "invalid token" | Invalid or revoked refresh token
-500 | "internal error" | Server error
+| Code | Body                                                                                               | Description                      |
+| ---- | -------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 200  | {"accessToken": JWT, "accessTokenExp": datetime, "refreshToken": JWT, "refreshTokenExp": datetime} | Access token refreshed           |
+| 400  | "invalid json body"                                                                                | Invalid request body             |
+| 401  | "invalid token"                                                                                    | Invalid or revoked refresh token |
+| 401  | "token expired"                                                                                    | Token expired                    |
+| 401  | "token reuse"                                                                                      | Used revoked token               |
+| 500  | "internal error"                                                                                   | Server error                     |
 
 ---
 
 ### POST /auth/validate
-
 Validates an access token and returns user context.
 
 Request:
@@ -193,11 +194,12 @@ Constraints:
 
 Response:
 
-Code | Body | Description
---- | --- | ---
-200 | {"id": UUID, "username": string, "roles": ["role"]} | Token valid
-400 | "invalid token" | Invalid or expired token
-500 | "internal error" | Server error
+| Code | Body                                                | Description   |
+| ---- | --------------------------------------------------- | ------------- |
+| 200  | {"id": UUID, "username": string, "roles": ["role"]} | Token valid   |
+| 401  | "invalid token"                                     | Invalid token |
+| 401  | "token expired"                                     | Token expired |
+| 500  | "internal error"                                    | Server error  |
 
 ---
 
@@ -219,12 +221,32 @@ If a refresh token is compromised, an attacker may obtain new access tokens unti
 - Advanced role/permission system (only basic roles are supported)
 - OAuth2, social login, MFA
 - Fine-grained authorization policies
+- Multy session for user
 
 These decisions were made to keep the service focused, minimal, and suitable for learning purposes.
 
 ---
 
+## Known issue
+Token reuse attack. User could have only one session, session is stored with "user_id" as primary key, if not expired refresh token is leaked it is possible to permanently logout user.    
+
+---
 ## Running locally
 
-(To be completed during implementation.)
+1. Prepare a PostgreSQL database and user
+2. Set connection variables in .env or environment
+3. Run migrations from:
+```bash
+/migrations/postgres
+```
+(using github.com/golang-migrate/migrate)
+
+4. Start server:
+```bash
+go run cmd/server/main.go
+```
+Server will be available at:
+```bash
+localhost:8080
+```
 

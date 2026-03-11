@@ -26,7 +26,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 func (ur *UserRepository) Create(ctx context.Context, user *domain.User) (*domain.User, error) {
 	var id uuid.UUID
 	var createdAt time.Time
-	err := ur.db.QueryRowContext(ctx, "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, created_at", user.Username, user.PasswordHash, user.Role).Scan(&id, &createdAt)
+	err := ur.db.QueryRowContext(ctx, "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, created_at", user.Username, user.PasswordHash, user.Role).Scan(&id, &createdAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {

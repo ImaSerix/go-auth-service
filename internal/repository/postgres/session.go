@@ -31,7 +31,7 @@ func (sr *SessionRepository) Upsert(ctx context.Context, session *domain.Session
 }
 func (sr *SessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Session, error) {
 	var session domain.Session
-	row := sr.db.QueryRowContext(ctx, "SELECT user_id, refresh_token_hash, expires_at, revoked_at FROM users WHERE user_id = $1", userID)
+	row := sr.db.QueryRowContext(ctx, "SELECT user_id, refresh_token_hash, expires_at, revoked_at FROM sessions WHERE user_id = $1", userID)
 
 	if err := row.Scan(&session.UserID, &session.RefreshTokenHash, &session.ExpiresAt, &session.RevokedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

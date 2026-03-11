@@ -12,10 +12,19 @@ type AuthHandler struct {
 	as auth.AuthService
 }
 
+func New(as auth.AuthService) *AuthHandler {
+	return &AuthHandler{
+		as: as,
+	}
+}
+
 func (ah *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		logError(r, err)
 
 		http.Error(w, "invalid json body", http.StatusBadRequest)
@@ -57,7 +66,10 @@ func (ah *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		logError(r, err)
 
 		http.Error(w, "invalid json body", http.StatusBadRequest)
@@ -74,9 +86,6 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
-			return
-		case errors.Is(err, auth.ErrTokenReuse):
-			http.Error(w, "token reuse", http.StatusUnauthorized)
 			return
 		default:
 			logError(r, err)
@@ -101,7 +110,10 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req LogoutRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		logError(r, err)
 
 		http.Error(w, "invalid json body", http.StatusBadRequest)
@@ -117,6 +129,9 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, auth.ErrInvalidToken):
 			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		case errors.Is(err, auth.ErrTokenExpired):
+			http.Error(w, "token expired", http.StatusUnauthorized)
 			return
 		default:
 			logError(r, err)
@@ -138,7 +153,10 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		logError(r, err)
 
 		http.Error(w, "invalid json body", http.StatusBadRequest)
@@ -152,9 +170,11 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	tokens, err := ah.as.Refresh(r.Context(), &in)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidCredentials):
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		case errors.Is(err, auth.ErrInvalidToken):
+			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
+		case errors.Is(err, auth.ErrTokenExpired):
+			http.Error(w, "token expired", http.StatusUnauthorized)
 		case errors.Is(err, auth.ErrTokenReuse):
 			http.Error(w, "token reuse", http.StatusUnauthorized)
 			return
@@ -180,7 +200,10 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	var req ValidateRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		logError(r, err)
 
 		http.Error(w, "invalid json body", http.StatusBadRequest)

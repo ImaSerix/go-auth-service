@@ -17,9 +17,18 @@ type JWTManager struct {
 	refreshTTL    time.Duration
 }
 
-func (tm *JWTManager) GenerateAccessToken(userID uuid.UUID) (token string, expiresAt time.Time, err error) {
+func NewJWTManager(accessSecret []byte, accessTTL time.Duration, refreshSecret []byte, refreshTTL time.Duration) *JWTManager {
+	return &JWTManager{
+		accessSecret:  accessSecret,
+		accessTTL:     accessTTL,
+		refreshSecret: refreshSecret,
+		refreshTTL:    refreshTTL,
+	}
+}
+
+func (tm *JWTManager) GenerateAccessToken(userID uuid.UUID) (*auth.AccessTokenDTO, error) {
 	now := time.Now()
-	expiresAt = now.Add(tm.accessTTL)
+	expiresAt := now.Add(tm.accessTTL)
 
 	claims := accessClaims{
 		UserID: userID,
@@ -32,25 +41,25 @@ func (tm *JWTManager) GenerateAccessToken(userID uuid.UUID) (token string, expir
 		},
 	}
 
-	token, err = jwt.
+	token, err := jwt.
 		NewWithClaims(jwt.SigningMethodHS256, claims).
 		SignedString(tm.accessSecret)
 	if err != nil {
-		var t time.Time
-		var s string
-		return s, t, fmt.Errorf("tokenManager: %w", err)
+		return nil, fmt.Errorf("tokenManager: %w", err)
 	}
 
-	return token, expiresAt, nil
+	return &auth.AccessTokenDTO{
+		AccessToken: token,
+		AccessExp:   &expiresAt,
+	}, nil
 }
 
-func (tm *JWTManager) GenerateRefreshToken(sessionID uuid.UUID, userID uuid.UUID) (token string, expiresAt time.Time, err error) {
+func (tm *JWTManager) GenerateRefreshToken(userID uuid.UUID) (*auth.RefreshTokenDTO, error) {
 	now := time.Now()
-	expiresAt = now.Add(tm.refreshTTL)
+	expiresAt := now.Add(tm.refreshTTL)
 
 	claims := refreshClaims{
-		UserID:    userID,
-		SessionID: sessionID,
+		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			Issuer:    "auth-service",
@@ -60,16 +69,17 @@ func (tm *JWTManager) GenerateRefreshToken(sessionID uuid.UUID, userID uuid.UUID
 		},
 	}
 
-	token, err = jwt.
+	token, err := jwt.
 		NewWithClaims(jwt.SigningMethodHS256, claims).
 		SignedString(tm.refreshSecret)
 	if err != nil {
-		var t time.Time
-		var s string
-		return s, t, fmt.Errorf("tokenManager: %w", err)
+		return nil, fmt.Errorf("tokenManager: %w", err)
 	}
 
-	return token, expiresAt, nil
+	return &auth.RefreshTokenDTO{
+		RefreshToken: token,
+		RefreshExp:   &expiresAt,
+	}, nil
 }
 func (tm *JWTManager) ParseAccessToken(tokenString string) (*auth.AccessTokenPayload, error) {
 	token, err := jwt.ParseWithClaims(tokenString, accessClaims{}, func(t *jwt.Token) (any, error) {

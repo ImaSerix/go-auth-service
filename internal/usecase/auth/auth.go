@@ -9,7 +9,7 @@ import (
 	"github.com/ImaSerix/password-safe-api/internal/dto/auth"
 	"github.com/ImaSerix/password-safe-api/internal/service/session"
 	"github.com/ImaSerix/password-safe-api/internal/service/user"
-	tokenmanager "github.com/ImaSerix/password-safe-api/internal/tokenManager"
+	"github.com/ImaSerix/password-safe-api/internal/tokenmanager"
 )
 
 // TODO Возмобно переименовать SessionSerive.Start метод, он как бы должен обновлять или создавать новую сессию
@@ -19,14 +19,14 @@ import (
 // TODO Валидацию может быть вынести в метод, имеется ввиду в input типы
 
 type authService struct {
-	userSerice     UserService
+	userService    UserService
 	sessionService SessionService
 	tokenManager   TokenManager
 }
 
 func New(us UserService, ss SessionService, tm TokenManager) *authService {
 	return &authService{
-		userSerice:     us,
+		userService:    us,
 		sessionService: ss,
 		tokenManager:   tm,
 	}
@@ -51,7 +51,7 @@ func (as *authService) Register(ctx context.Context, in *RegisterInput) (*auth.U
 		return nil, ErrInvalidRole
 	}
 
-	u, err := as.userSerice.Register(ctx, in.Username, in.Password, in.Role)
+	u, err := as.userService.Register(ctx, in.Username, in.Password, in.Role)
 	if err != nil {
 		if errors.Is(err, user.ErrUsernameTaken) {
 			return nil, ErrUsernameTaken
@@ -80,7 +80,7 @@ func (as *authService) Login(ctx context.Context, in *LoginInput) (*auth.UserDTO
 		return nil, nil, ErrInvalidCredentials
 	}
 
-	u, err := as.userSerice.ValidateCredentials(ctx, in.Username, in.Password)
+	u, err := as.userService.ValidateCredentials(ctx, in.Username, in.Password)
 	if err != nil {
 		if errors.Is(err, user.ErrInvalidCredentials) {
 			return nil, nil, ErrInvalidCredentials
@@ -129,7 +129,7 @@ func (as *authService) AuthViaToken(ctx context.Context, in *AuthViaTokenInput) 
 		}
 		return nil, fmt.Errorf("failed parse token: %w", err)
 	}
-	user, err := as.userSerice.GetByID(ctx, accPayload.UserID)
+	user, err := as.userService.GetByID(ctx, accPayload.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed find user %s: %w", accPayload.UserID, err)
 	}
@@ -191,7 +191,13 @@ func (as *authService) Logout(ctx context.Context, in *LogoutInput) error {
 	}
 	refPayload, err := as.tokenManager.ParseRefreshToken(in.RefreshToken)
 	if err != nil {
-		return ErrInvalidToken
+		if errors.Is(err, tokenmanager.ErrInvalidToken) {
+			return ErrInvalidToken
+		}
+		if errors.Is(err, tokenmanager.ErrTokenExpired) {
+			return ErrTokenExpired
+		}
+		return fmt.Errorf("failed parse refresh token %w", err)
 	}
 	err = as.sessionService.Revoke(ctx, refPayload.UserID, in.RefreshToken)
 	if err != nil {
