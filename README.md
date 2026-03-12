@@ -1,6 +1,6 @@
 # go-auth-service
 
-Go Auth Service is a learning/portfolio project focused on managing user authentication and basic authorization.
+Go Auth Service is a learning/portfolio (not production-ready) project focused on managing user authentication and basic authorization.
 
 The main goal of the project, beyond implementing authentication and authorization, is to design a service that can be easily integrated into any other system.
 
