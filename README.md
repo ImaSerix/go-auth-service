@@ -233,20 +233,44 @@ Token reuse attack. User could have only one session, session is stored with "us
 ---
 ## Running locally
 
-1. Prepare a PostgreSQL database and user
-2. Set connection variables in .env or environment
-3. Run migrations from:
+1. Prepare PostgreSQL database and user.
+
+2. Create `.env` file in the project root (or export variables directly):
+
 ```bash
-/migrations/postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=auth_db
+DB_USER=auth_user
+DB_PASSWORD=auth_password
+DB_SSLMODE=disable
+
+JWT_ACCESS_SECRET=replace-with-random-long-secret
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_SECRET=replace-with-another-random-long-secret
+JWT_REFRESH_TTL=720h
+
+ARGON2_MEMORY=65536
+ARGON2_ITERATIONS=3
+ARGON2_PARALLELISM=2
+ARGON2_SALT_LENGTH=16
+ARGON2_KEY_LENGTH=32
 ```
-(using github.com/golang-migrate/migrate)
+
+3. Run migrations (example with `migrate` CLI):
+
+```bash
+migrate -path ./migrations/postgres -database "postgres://auth_user:auth_password@localhost:5432/auth_db?sslmode=disable" up
+```
 
 4. Start server:
+
 ```bash
-go run cmd/server/main.go
-```
-Server will be available at:
-```bash
-localhost:8080
+go run ./cmd/server
 ```
 
+Server will be available at:
+
+```bash
+http://localhost:8080
+```
