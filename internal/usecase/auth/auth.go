@@ -12,12 +12,6 @@ import (
 	"github.com/ImaSerix/password-safe-api/internal/tokenmanager"
 )
 
-// TODO Возмобно переименовать SessionSerive.Start метод, он как бы должен обновлять или создавать новую сессию
-// TODO Возможные race conditions, хз как их фиксить
-// TODO Добавить ошибки на просрочку токенов
-// TODO Всё таки добовать Role в accessToken, дабы сэкономить кол-во запросов к базе данных
-// TODO Валидацию может быть вынести в метод, имеется ввиду в input типы
-
 type authService struct {
 	userService    UserService
 	sessionService SessionService
@@ -38,6 +32,8 @@ type RegisterInput struct {
 	Role     string
 }
 
+// Register стандартная функция регистрации, валидирует данные и передаёт их сервису пользователей, возвращает DTO пользователя.
+// Returns ErrInvalidUsername, ErrInvalidPassword, ErrInvalidRole при ошибках валидации и ErrUsernameTaken, если имя пользователя занято.
 func (as *authService) Register(ctx context.Context, in *RegisterInput) (*auth.UserDTO, error) {
 	if strings.TrimSpace(in.Username) == "" || len(in.Username) > 32 || len(in.Username) < 4 {
 		return nil, ErrInvalidUsername
@@ -71,6 +67,27 @@ type LoginInput struct {
 	Password string
 }
 
+// Login валидирует реквизиты для входа, при успехе генерирует токены доступа и обновления, а также создаёт/обновляет сессию пользователя.
+//
+// Purpose:
+//   - Реализует первичную авторизацию, предоставляя токены для входа и обновления
+//
+// Input:
+//   - ctx: для отмены/дедлайна
+//   - in: структура с полями
+//     Username: не пустая строка, имеющая не более 32 символа
+//     Password: не пистая строка, имеющая не более 256 символов
+//
+// Output:
+//   - При успехе возвращает DTO пользователя и DTO токенов
+//   - При ошибке возвращаются nil и ошибка
+//
+// Errors:
+//   - ErrInvalidCredentials: возникает при вводе заведомо невалидных реквизитов или при негативной валидации от сервиса пользователя
+//
+// Side effects:
+//   - Генерирует токены
+//   - Записывает/обновляет сессию в БД
 func (as *authService) Login(ctx context.Context, in *LoginInput) (*auth.UserDTO, *auth.TokenDTO, error) {
 	if strings.TrimSpace(in.Username) == "" || len(in.Username) > 32 {
 		return nil, nil, ErrInvalidCredentials
@@ -115,6 +132,23 @@ type AuthViaTokenInput struct {
 	AccessToken string
 }
 
+// AuthViaToken парсит токен входа, при успехе возвращает соответсвующий токену DTO пользователя.
+//
+// Purpose:
+//   - Позволяет валидировать токены входа, тем самым реализуя повторную аутентификацию через токены.
+//
+// Input:
+//   - ctx: для отмены/дедлайна.
+//   - in: структура с полем
+//     AccessToken: валидная JWT строка
+//
+// Output:
+//   - При успехе возвращается DTO пользователя.
+//   - При ошибки возвращается nil и ошибка.
+//
+// Errors:
+//   - ErrInvalidToken: возникает при дефектном токене или при негодной подписи.
+//   - ErrTokenExpired: возникает, если токен просрочен.
 func (as *authService) AuthViaToken(ctx context.Context, in *AuthViaTokenInput) (*auth.UserDTO, error) {
 	if strings.TrimSpace(in.AccessToken) == "" {
 		return nil, ErrInvalidToken
@@ -144,6 +178,28 @@ type RefreshInput struct {
 	RefreshToken string
 }
 
+// Refresh парсит токен обновления, при успехе генерирует новый токены доступа и обновления, обновляет данные в сессии.
+//
+// Purpose:
+//   - Позволяет обновлять просроченный токен входа используя токен обновления.
+//
+// Input:
+//   - ctx: для отмены/дедлайна.
+//   - in: структура с полем
+//     RefreshToken: валидная JWT строка
+//
+// Output:
+//   - При успехе возвращается DTO токенов.
+//   - При ошибки возвращается nil и ошибка.
+//
+// Errors:
+//   - ErrInvalidToken: возникает при дефектном токене или при негодной подписи.
+//   - ErrTokenExpired: возникает, если токен просрочен.
+//   - ErrTokenReuse: возникает при константации использования отозванного токена обновления.
+//
+// Side effects:
+//   - Генерирует новые токены входа и обновления
+//   - Производит ротацию токена обновления в сессии
 func (as *authService) Refresh(ctx context.Context, in *RefreshInput) (*auth.TokenDTO, error) {
 	if strings.TrimSpace(in.RefreshToken) == "" {
 		return nil, ErrInvalidToken
@@ -185,6 +241,8 @@ type LogoutInput struct {
 	RefreshToken string
 }
 
+// Logout парсит токен обновления, при успехе отзывает сессию пользователя, тем самым не позволяя обновлять токены.
+// Returns ErrInvalidToken при дефектном токене или при невалидной подписи, ErrTokenExpired при просрочке токена.
 func (as *authService) Logout(ctx context.Context, in *LogoutInput) error {
 	if strings.TrimSpace(in.RefreshToken) == "" {
 		return ErrInvalidToken

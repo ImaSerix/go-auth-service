@@ -175,6 +175,7 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			return
 		case errors.Is(err, auth.ErrTokenExpired):
 			http.Error(w, "token expired", http.StatusUnauthorized)
+			return
 		case errors.Is(err, auth.ErrTokenReuse):
 			http.Error(w, "token reuse", http.StatusUnauthorized)
 			return

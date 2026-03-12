@@ -11,7 +11,7 @@ import (
 	"github.com/ImaSerix/password-safe-api/internal/service/session"
 	"github.com/ImaSerix/password-safe-api/internal/service/user"
 	"github.com/ImaSerix/password-safe-api/internal/storage"
-	tokenmanager "github.com/ImaSerix/password-safe-api/internal/tokenManager"
+	"github.com/ImaSerix/password-safe-api/internal/tokenmanager"
 	authService "github.com/ImaSerix/password-safe-api/internal/usecase/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
