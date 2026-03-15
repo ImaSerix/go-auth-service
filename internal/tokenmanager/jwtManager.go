@@ -82,7 +82,7 @@ func (tm *JWTManager) GenerateRefreshToken(userID uuid.UUID) (*auth.RefreshToken
 	}, nil
 }
 func (tm *JWTManager) ParseAccessToken(tokenString string) (*auth.AccessTokenPayload, error) {
-	token, err := jwt.ParseWithClaims(tokenString, accessClaims{}, func(t *jwt.Token) (any, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &accessClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
@@ -97,7 +97,7 @@ func (tm *JWTManager) ParseAccessToken(tokenString string) (*auth.AccessTokenPay
 		return nil, ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(accessClaims)
+	claims, ok := token.Claims.(*accessClaims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}
@@ -106,7 +106,7 @@ func (tm *JWTManager) ParseAccessToken(tokenString string) (*auth.AccessTokenPay
 	}, nil
 }
 func (tm *JWTManager) ParseRefreshToken(tokenString string) (*auth.RefreshTokenPayload, error) {
-	token, err := jwt.ParseWithClaims(tokenString, refreshClaims{}, func(t *jwt.Token) (any, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &refreshClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
@@ -121,7 +121,7 @@ func (tm *JWTManager) ParseRefreshToken(tokenString string) (*auth.RefreshTokenP
 		return nil, ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(refreshClaims)
+	claims, ok := token.Claims.(*refreshClaims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}
