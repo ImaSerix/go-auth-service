@@ -1,0 +1,8 @@
+package session
+
+import "errors"
+
+var (
+	ErrNotFound      = errors.New("not found")
+	ErrTokenMismatch = errors.New("token mismatch")
+)
