@@ -96,7 +96,8 @@ Response:
 | ---- | :-------------------: | ------------------------ |
 | 201  |     {"id": UUID}      | User created             |
 | 400  |  "invalid json body"  | Invalid request body     |
-| 400  | "invalid credentials" | Invalid input in request |
+| 400  | "invalid credentials" | Invalid username or password in request |
+| 400  | "invalid role" | Invalid role in request |
 | 409  |   "username taken"    | Username already exists  |
 | 500  |   "internal error"    | Server error             |
 
