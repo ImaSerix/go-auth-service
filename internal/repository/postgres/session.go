@@ -41,19 +41,19 @@ func (sr *SessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) 
 	}
 	return &session, nil
 }
-func (sr *SessionRepository) CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) error {
-	res, err := sr.db.ExecContext(ctx, "UPDATE sessions SET refresh_token_hash = $1, expires_at = $2 WHERE user_id = $3 AND refresh_token_hash = $4", newHash, expiresAt, userID, oldHash)
+func (sr *SessionRepository) SwapRefresh(ctx context.Context, userID uuid.UUID, newHash string, expiresAt *time.Time) error {
+	res, err := sr.db.ExecContext(ctx, "UPDATE sessions SET refresh_token_hash = $1, expires_at = $2 WHERE user_id = $3", newHash, expiresAt, userID)
 	if err != nil {
-		return fmt.Errorf("compareAndSwapRefresh: %w", err)
+		return fmt.Errorf("swapRefresh: %w", err)
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("compareAndSwapRefresh: %w", err)
+		return fmt.Errorf("swapRefresh: %w", err)
 	}
 
 	if rows == 0 {
-		return repository.ErrInvalidRefresh
+		return fmt.Errorf("swapRefresh: no session for user")
 	}
 
 	return nil

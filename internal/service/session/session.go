@@ -40,20 +40,28 @@ func (ss *sessionService) Start(ctx context.Context, userID uuid.UUID, refreshTo
 	return nil
 }
 func (ss *sessionService) Rotate(ctx context.Context, userID uuid.UUID, oldToken, newToken string, expirestAt *time.Time) error {
-	oldHash, err := ss.hasher.Hash(oldToken)
-	if err != nil {
-		return fmt.Errorf("rotate: %w", err)
-	}
 	newHash, err := ss.hasher.Hash(newToken)
 	if err != nil {
 		return fmt.Errorf("rotate: %w", err)
 	}
 
-	err = ss.sessions.CompareAndSwapRefresh(ctx, userID, oldHash, newHash, expirestAt)
+	session, err := ss.sessions.GetByUserID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidRefresh) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return ErrTokenMismatch
 		}
+		return fmt.Errorf("rotate: %w", err)
+	}
+	valid, err := ss.hasher.Verify(oldToken, session.RefreshTokenHash)
+	if err != nil {
+		return fmt.Errorf("rotate: %w", err)
+	}
+	if !valid {
+		return ErrTokenMismatch
+	}
+
+	err = ss.sessions.SwapRefresh(ctx, userID, newHash, expirestAt)
+	if err != nil {
 		return fmt.Errorf("rotate: %w", err)
 	}
 

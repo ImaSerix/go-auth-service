@@ -26,7 +26,7 @@ func (fsr *fakeSessionRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (
 	}
 	return fsr.session, nil
 }
-func (fsr *fakeSessionRepo) CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) error {
+func (fsr *fakeSessionRepo) SwapRefresh(ctx context.Context, userID uuid.UUID, newHash string, expiresAt *time.Time) error {
 	fsr.called = true
 	fsr.session.ExpiresAt = expiresAt
 	fsr.session.RefreshTokenHash = newHash
@@ -38,8 +38,9 @@ func (fsr *fakeSessionRepo) ClearRefreshByUserID(ctx context.Context, userID uui
 }
 
 type fakeHasher struct {
-	err    error
-	called bool
+	err       error
+	called    bool
+	verifyRes bool
 }
 
 func (fh *fakeHasher) Hash(data string) (string, error) {
@@ -52,7 +53,7 @@ func (fh *fakeHasher) Hash(data string) (string, error) {
 func (fh *fakeHasher) Verify(data, hash string) (bool, error) {
 	fh.called = true
 	if fh.err != nil {
-		return false, fh.err
+		return fh.verifyRes, fh.err
 	}
-	return true, nil
+	return fh.verifyRes, nil
 }
