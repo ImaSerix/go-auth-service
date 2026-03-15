@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ImaSerix/password-safe-api/internal/domain"
-	"github.com/ImaSerix/password-safe-api/internal/repository"
 	"github.com/ImaSerix/password-safe-api/internal/service/session"
 	"github.com/google/uuid"
 )
@@ -83,7 +82,8 @@ func TestRotate_Success(t *testing.T) {
 		},
 	}
 	hasher := fakeHasher{
-		called: false,
+		called:    false,
+		verifyRes: true,
 	}
 
 	ss := session.New(&sessionRepo, &hasher)
@@ -146,14 +146,14 @@ func TestRotate_HashError(t *testing.T) {
 func TestRotate_TokenMismatch(t *testing.T) {
 	sessionRepo := fakeSessionRepo{
 		called: false,
-		err:    repository.ErrInvalidRefresh,
 		session: &domain.Session{
 			UserID:           uuid.New(),
 			RefreshTokenHash: "old hash",
 		},
 	}
 	hasher := fakeHasher{
-		called: false,
+		called:    false,
+		verifyRes: false,
 	}
 
 	ss := session.New(&sessionRepo, &hasher)

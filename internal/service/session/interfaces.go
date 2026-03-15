@@ -11,7 +11,7 @@ import (
 type SessionRepository interface {
 	Upsert(ctx context.Context, session *domain.Session) error
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Session, error)
-	CompareAndSwapRefresh(ctx context.Context, userID uuid.UUID, oldHash string, newHash string, expiresAt *time.Time) error
+	SwapRefresh(ctx context.Context, userID uuid.UUID, newHash string, expiresAt *time.Time) error
 	ClearRefreshByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
