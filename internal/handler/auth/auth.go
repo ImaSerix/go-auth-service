@@ -40,8 +40,11 @@ func (ah *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user, err := ah.as.Register(r.Context(), &in)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidUsername), errors.Is(err, auth.ErrInvalidPassword), errors.Is(err, auth.ErrInvalidRole):
+		case errors.Is(err, auth.ErrInvalidUsername), errors.Is(err, auth.ErrInvalidPassword):
 			http.Error(w, "invalid credentials", http.StatusBadRequest)
+			return
+		case errors.Is(err, auth.ErrInvalidRole):
+			http.Error(w, "invalid role", http.StatusBadRequest)
 			return
 		case errors.Is(err, auth.ErrUsernameTaken):
 			http.Error(w, "username taken", http.StatusConflict)

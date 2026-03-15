@@ -7,7 +7,7 @@ import (
 	"github.com/ImaSerix/password-safe-api/internal/domain"
 	"github.com/ImaSerix/password-safe-api/internal/service/session"
 	"github.com/ImaSerix/password-safe-api/internal/service/user"
-	tokenmanager "github.com/ImaSerix/password-safe-api/internal/tokenManager"
+	"github.com/ImaSerix/password-safe-api/internal/tokenmanager"
 	"github.com/ImaSerix/password-safe-api/internal/usecase/auth"
 	"github.com/google/uuid"
 )
