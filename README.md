@@ -275,3 +275,44 @@ Server will be available at:
 ```bash
 http://localhost:8080
 ```
+
+---
+
+## Docker
+
+The repository contains one `Dockerfile` with two targets:
+
+| Target | Command | Purpose |
+| --- | --- | --- |
+| service (default) | `docker build -t go-auth-service .` | Static Go binary on `alpine:3.24.4`; listens on `:8080` |
+| `migrate` | `docker build --target migrate -t go-auth-service-migrate .` | `migrate/migrate:v4.20.1` with `migrations/postgres` baked in |
+
+The images contain no `.env`, no `.git` and no secrets (`.dockerignore`). All configuration is passed as environment variables at run time; the list is the same as in "Running locally" above (`DB_*`, `JWT_*`, `ARGON2_*`). `DB_HOST` must be reachable from the container (for example the PostgreSQL service name in a shared Docker network).
+
+### Migrations (one-shot container)
+
+Run migrations under the **migrator** role (the owner of the database and schema), not under the application role:
+
+```bash
+docker run --rm --network <network> go-auth-service-migrate \
+  -database "postgres://<migrator>:<password>@<db-host>:5432/<db-name>?sslmode=disable" up
+```
+
+The container applies the migrations and exits. Roll back one step with `down 1` instead of `up`.
+
+### Running the service
+
+Run the service under the **application** role (data rights only, no schema changes):
+
+```bash
+docker run --rm --network <network> -p 8080:8080 \
+  -e DB_HOST=<db-host> -e DB_PORT=5432 -e DB_NAME=<db-name> \
+  -e DB_USER=<app-role> -e DB_PASSWORD=<password> -e DB_SSLMODE=disable \
+  -e JWT_ACCESS_SECRET=<secret> -e JWT_ACCESS_TTL=15m \
+  -e JWT_REFRESH_SECRET=<other-secret> -e JWT_REFRESH_TTL=720h \
+  -e ARGON2_MEMORY=65536 -e ARGON2_ITERATIONS=3 -e ARGON2_PARALLELISM=2 \
+  -e ARGON2_SALT_LENGTH=16 -e ARGON2_KEY_LENGTH=32 \
+  go-auth-service
+```
+
+Or pass the variables from a file kept outside the repository: `--env-file <path>`. The service has no `/health` endpoint; check it with any `POST /auth/*` request. The log line `Erorr while loading .env file` at startup is expected in a container: there is no `.env` file and the variables come from the environment.
