@@ -1,8 +1,8 @@
 .git
 .gitignore
-.env
-.env.*
-*.env
+**/.env
+**/.env.*
+**/*.env
 .vscode
 .idea
 *.md

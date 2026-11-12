@@ -24,7 +24,10 @@ CMD ["-help"]
 
 # ---- runtime stage (default target) ----
 FROM alpine:3.24.4
+# Unprivileged service user named after the service (D-19).
+RUN adduser -D -H -s /sbin/nologin auth
 COPY --from=build /out/auth /usr/local/bin/auth
 EXPOSE 8080
+USER auth
 # All configuration comes from environment variables (see README).
 ENTRYPOINT ["/usr/local/bin/auth"]

@@ -287,7 +287,7 @@ The repository contains one `Dockerfile` with two targets:
 | service (default) | `docker build -t go-auth-service .` | Static Go binary on `alpine:3.24.4`; listens on `:8080` |
 | `migrate` | `docker build --target migrate -t go-auth-service-migrate .` | `migrate/migrate:v4.20.1` with `migrations/postgres` baked in |
 
-The images contain no `.env`, no `.git` and no secrets (`.dockerignore`). All configuration is passed as environment variables at run time; the list is the same as in "Running locally" above (`DB_*`, `JWT_*`, `ARGON2_*`). `DB_HOST` must be reachable from the container (for example the PostgreSQL service name in a shared Docker network).
+The service runs as the unprivileged user `auth` (not root). The images contain no `.env`, no `.git` and no secrets (`.dockerignore`). All configuration is passed as environment variables at run time; the list is the same as in "Running locally" above (`DB_*`, `JWT_*`, `ARGON2_*`). `DB_HOST` must be reachable from the container (for example the PostgreSQL service name in a shared Docker network).
 
 ### Migrations (one-shot container)
 
