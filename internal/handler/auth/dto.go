@@ -44,9 +44,6 @@ type RefreshResponse struct {
 	RefreshExp   time.Time `json:"refreshExp"`
 }
 
-type ValidateRequest struct {
-	AccessToken string `json:"accessToken"`
-}
 type ValidateResponse struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`

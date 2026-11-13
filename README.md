@@ -184,23 +184,24 @@ Response:
 Validates an access token and returns user context.
 
 Request:
-```json
-{
-  "accessToken": JWT
-}
+
+The access token is passed in the `Authorization` header. The request body is not read.
+
+```
+Authorization: Bearer <JWT>
 ```
 
 Constraints:
-- accessToken: valid JWT
+- Authorization: `Bearer ` followed by a valid JWT access token
 
 Response:
 
-| Code | Body                                                | Description   |
-| ---- | --------------------------------------------------- | ------------- |
-| 200  | {"id": UUID, "username": string, "roles": ["role"]} | Token valid   |
-| 401  | "invalid token"                                     | Invalid token |
-| 401  | "token expired"                                     | Token expired |
-| 500  | "internal error"                                    | Server error  |
+| Code | Body                                                | Description                                         |
+| ---- | --------------------------------------------------- | --------------------------------------------------- |
+| 200  | {"id": UUID, "username": string, "roles": ["role"]} | Token valid                                         |
+| 401  | "invalid token"                                     | Header missing, not in `Bearer` form, invalid token |
+| 401  | "token expired"                                     | Token expired                                       |
+| 500  | "internal error"                                    | Server error                                        |
 
 ---
 
@@ -208,8 +209,8 @@ Response:
 
 This service is designed primarily for service-to-service communication.
 
-Authentication data and tokens are accepted in the request body.  
-Header-based authentication may be added in future versions.
+Credentials and refresh tokens are accepted in the request body.  
+The access token for `/auth/validate` is accepted only in the `Authorization: Bearer` header.
 
 Clients are responsible for securely storing access and especially refresh tokens.  
 If a refresh token is compromised, an attacker may obtain new access tokens until the session is revoked.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/ImaSerix/password-safe-api/internal/usecase/auth"
 )
@@ -202,20 +203,15 @@ func (ah *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ah *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
-	var req ValidateRequest
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&req); err != nil {
-		logError(r, err)
-
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	// The access token comes only from the Authorization header; the body is not read.
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	in := auth.AuthViaTokenInput{
-		AccessToken: req.AccessToken,
+		AccessToken: token,
 	}
 
 	user, err := ah.as.AuthViaToken(r.Context(), &in)
