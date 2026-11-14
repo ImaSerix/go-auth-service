@@ -10,9 +10,10 @@ import (
 )
 
 type Config struct {
-	DB     DBConfig
-	JWT    JWTConfig
-	Argon2 Argon2Config
+	DB      DBConfig
+	JWT     JWTConfig
+	Argon2  Argon2Config
+	Message MessageConfig
 }
 
 type DBConfig struct {
@@ -49,6 +50,12 @@ type Argon2Config struct {
 	Parallelism uint8
 	SaltLength  uint32
 	KeyLength   uint32
+}
+
+// MessageConfig describes the Message service that receives registered users.
+// An empty URL turns the delivery off.
+type MessageConfig struct {
+	URL string
 }
 
 func mustEnv(key string) string {
@@ -126,6 +133,9 @@ func Load() *Config {
 			Parallelism: uint8(parallelism),
 			SaltLength:  uint32(saltLength),
 			KeyLength:   uint32(keyLength),
+		},
+		Message: MessageConfig{
+			URL: os.Getenv("MESSAGE_URL"),
 		},
 	}
 }

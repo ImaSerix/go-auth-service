@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 	authHandler "github.com/ImaSerix/password-safe-api/internal/handler/auth"
 	"github.com/ImaSerix/password-safe-api/internal/hasher/argon2id"
 	"github.com/ImaSerix/password-safe-api/internal/repository/postgres"
+	"github.com/ImaSerix/password-safe-api/internal/service/outbox"
 	"github.com/ImaSerix/password-safe-api/internal/service/session"
 	"github.com/ImaSerix/password-safe-api/internal/service/user"
 	"github.com/ImaSerix/password-safe-api/internal/storage"
@@ -38,6 +40,13 @@ func main() {
 	as := authService.New(us, ss, tm)
 
 	ah := authHandler.New(as)
+
+	// Delivery of registered users to the Message service; lives as long as the process.
+	if cfg.Message.URL != "" {
+		go outbox.New(postgres.NewOutboxRepository(db), cfg.Message.URL).Run(context.Background())
+	} else {
+		log.Print("MESSAGE_URL is not set: registered users are not delivered to the Message service")
+	}
 
 	r := chi.NewRouter()
 
