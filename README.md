@@ -46,6 +46,10 @@ HTTP request → handler → service → repository
 #### Repository
 - Handles database access
 - Manages users, sessions, and roles
+- Writes the outbox entry of a new user together with the user
+
+#### Background delivery
+- `internal/service/outbox` sends new users to the Message service (see "User delivery to the Message service")
 
 This separation keeps responsibilities isolated and allows individual layers to evolve independently.
 
@@ -100,6 +104,8 @@ Response:
 | 400  | "invalid role" | Invalid role in request |
 | 409  |   "username taken"    | Username already exists  |
 | 500  |   "internal error"    | Server error             |
+
+The response does not wait for the delivery of the user to the Message service (see "User delivery to the Message service").
 
 ---
 
@@ -205,6 +211,26 @@ Response:
 
 ---
 
+## User delivery to the Message service
+
+A registered user must appear in the Message service with the same UUID, even if Message is down at the moment of registration. Auth uses a transactional outbox for that; no message broker is involved.
+
+- `POST /auth/register` writes the user and a row of the `outbox` table (`user_id`, `username`) in one database transaction: either both rows appear or none. The response does not wait for the delivery.
+- A background task inside the Auth process (`internal/service/outbox`) reads undelivered rows (`delivered_at IS NULL`) in `id` order, up to 100 rows per pass, right after the start and then every 5 seconds.
+- For every row it calls `POST <MESSAGE_URL>/internal/users` with the body `{"user_id": UUID, "username": "..."}` and a 5 second timeout. The call carries no credentials: it relies on the isolated internal network.
+- `201` (created) and `409` (Message already has this user) both mean success: `delivered_at` is set. Any other status and any network error is a failure: it is logged (`outbox: deliver user ...`), the row stays undelivered and is retried on the next pass. There is no attempt limit. A failed row does not stop the delivery of the other rows of the pass.
+- `attempts` counts the requests made for the row, including the successful one; it is kept for diagnostics only.
+- If `MESSAGE_URL` is empty, the delivery is off: rows are still written and will be delivered once Auth is started with `MESSAGE_URL`.
+- The task starts and stops with the process; one Auth instance is assumed (rows are not locked between instances). If the process stops between the answer of Message and the update of the row, the user is sent again after the restart and Message answers `409`.
+
+Undelivered users:
+
+```sql
+SELECT id, user_id, username, created_at, attempts FROM outbox WHERE delivered_at IS NULL ORDER BY id;
+```
+
+---
+
 ## Security assumptions
 
 This service is designed primarily for service-to-service communication.
@@ -256,6 +282,9 @@ ARGON2_ITERATIONS=3
 ARGON2_PARALLELISM=2
 ARGON2_SALT_LENGTH=16
 ARGON2_KEY_LENGTH=32
+
+# Optional: base URL of the Message service; empty or missing turns the user delivery off
+MESSAGE_URL=http://localhost:8081
 ```
 
 3. Run migrations (example with `migrate` CLI):
@@ -276,6 +305,18 @@ Server will be available at:
 http://localhost:8080
 ```
 
+### Tests
+
+```bash
+go test ./...
+```
+
+The tests of `internal/repository/postgres` need a real PostgreSQL and are skipped without `TEST_DATABASE_URL`. They create a schema of their own (`auth_test_<number>`), apply `migrations/postgres` to it and drop it afterwards, so the role must be allowed to create schemas:
+
+```bash
+TEST_DATABASE_URL="postgres://<role>:<password>@localhost:5432/<db-name>?sslmode=disable" go test ./internal/repository/postgres/
+```
+
 ---
 
 ## Docker
@@ -287,7 +328,7 @@ The repository contains one `Dockerfile` with two targets:
 | service (default) | `docker build -t go-auth-service .` | Static Go binary on `alpine:3.24.4`; listens on `:8080` |
 | `migrate` | `docker build --target migrate -t go-auth-service-migrate .` | `migrate/migrate:v4.20.1` with `migrations/postgres` baked in |
 
-The service runs as the unprivileged user `auth` (not root). The images contain no `.env`, no `.git` and no secrets (`.dockerignore`). All configuration is passed as environment variables at run time; the list is the same as in "Running locally" above (`DB_*`, `JWT_*`, `ARGON2_*`). `DB_HOST` must be reachable from the container (for example the PostgreSQL service name in a shared Docker network).
+The service runs as the unprivileged user `auth` (not root). The images contain no `.env`, no `.git` and no secrets (`.dockerignore`). All configuration is passed as environment variables at run time; the list is the same as in "Running locally" above (`DB_*`, `JWT_*`, `ARGON2_*` and the optional `MESSAGE_URL`). `DB_HOST` must be reachable from the container (for example the PostgreSQL service name in a shared Docker network).
 
 ### Migrations (one-shot container)
 
@@ -312,6 +353,7 @@ docker run --rm --network <network> -p 8080:8080 \
   -e JWT_REFRESH_SECRET=<other-secret> -e JWT_REFRESH_TTL=720h \
   -e ARGON2_MEMORY=65536 -e ARGON2_ITERATIONS=3 -e ARGON2_PARALLELISM=2 \
   -e ARGON2_SALT_LENGTH=16 -e ARGON2_KEY_LENGTH=32 \
+  -e MESSAGE_URL=http://<message-host>:8080 \
   go-auth-service
 ```
 
