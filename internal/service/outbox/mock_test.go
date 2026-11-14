@@ -17,7 +17,15 @@ type fakeOutboxRepository struct {
 	mu        sync.Mutex
 	entries   []*fakeEntry
 	listErr   error
+	markErr   error
+	panics    int // number of next ListUndelivered calls that panic
 	lastLimit int
+}
+
+func (f *fakeOutboxRepository) set(change func(f *fakeOutboxRepository)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	change(f)
 }
 
 func (f *fakeOutboxRepository) add(entry domain.OutboxEntry) {
@@ -39,6 +47,10 @@ func (f *fakeOutboxRepository) ListUndelivered(ctx context.Context, limit int) (
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastLimit = limit
+	if f.panics > 0 {
+		f.panics--
+		panic("repository panic")
+	}
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -54,6 +66,9 @@ func (f *fakeOutboxRepository) ListUndelivered(ctx context.Context, limit int) (
 func (f *fakeOutboxRepository) MarkDelivered(ctx context.Context, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.markErr != nil {
+		return f.markErr
+	}
 	for _, e := range f.entries {
 		if e.entry.ID == id {
 			e.delivered = true
@@ -66,6 +81,9 @@ func (f *fakeOutboxRepository) MarkDelivered(ctx context.Context, id int64) erro
 func (f *fakeOutboxRepository) MarkFailed(ctx context.Context, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.markErr != nil {
+		return f.markErr
+	}
 	for _, e := range f.entries {
 		if e.entry.ID == id {
 			e.entry.Attempts++

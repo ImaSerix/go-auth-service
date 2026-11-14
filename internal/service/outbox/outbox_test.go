@@ -266,18 +266,170 @@ func TestDeliver_BatchLimit(t *testing.T) {
 	}
 }
 
-func TestDeliver_ListError(t *testing.T) {
+// A redirect is not followed: 3xx is a failed attempt even if the target would answer 201.
+func TestDeliver_RedirectIsFailure(t *testing.T) {
+	for _, status := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			var mu sync.Mutex
+			var paths []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				paths = append(paths, r.Method+" "+r.URL.Path)
+				mu.Unlock()
+				if r.URL.Path == "/internal/users" {
+					http.Redirect(w, r, "/elsewhere", status)
+					return
+				}
+				w.WriteHeader(http.StatusCreated)
+			}))
+			defer srv.Close()
+
+			repo := &fakeOutboxRepository{}
+			repo.add(newEntry(1))
+
+			outbox.New(repo, srv.URL).Deliver(t.Context())
+
+			got := repo.get(1)
+			if got.delivered {
+				t.Fatalf("expected entry to stay undelivered on %d", status)
+			}
+			if got.entry.Attempts != 1 {
+				t.Fatalf("expected 1 attempt, got %d", got.entry.Attempts)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(paths) != 1 || paths[0] != "POST /internal/users" {
+				t.Fatalf("expected the redirect not to be followed, got requests %v", paths)
+			}
+		})
+	}
+}
+
+// The database fails for one pass: nothing is sent, the next pass delivers.
+func TestDeliver_ListErrorThenRecovery(t *testing.T) {
 	msg := &fakeMessage{status: always(http.StatusCreated)}
 	srv := httptest.NewServer(msg)
 	defer srv.Close()
 
 	repo := &fakeOutboxRepository{listErr: errors.New("db is down")}
 	repo.add(newEntry(1))
+	svc := outbox.New(repo, srv.URL)
 
-	outbox.New(repo, srv.URL).Deliver(t.Context())
+	svc.Deliver(t.Context())
 
 	if n := len(msg.received()); n != 0 {
 		t.Fatalf("expected no requests, got %d", n)
+	}
+	if repo.get(1).delivered {
+		t.Fatal("expected entry to stay undelivered")
+	}
+
+	repo.set(func(f *fakeOutboxRepository) { f.listErr = nil })
+	svc.Deliver(t.Context())
+
+	if !repo.get(1).delivered {
+		t.Fatal("expected entry to be delivered after the database is back")
+	}
+}
+
+// Message created the user but the database could not record it: the entry
+// stays undelivered, is sent again and the 409 of Message completes it.
+func TestDeliver_MarkErrorThenRecovery(t *testing.T) {
+	created := false
+	msg := &fakeMessage{}
+	msg.status = func(string) int {
+		if created {
+			return http.StatusConflict
+		}
+		created = true
+		return http.StatusCreated
+	}
+	srv := httptest.NewServer(msg)
+	defer srv.Close()
+
+	repo := &fakeOutboxRepository{markErr: errors.New("db is down")}
+	repo.add(newEntry(1))
+	repo.add(newEntry(2))
+	svc := outbox.New(repo, srv.URL)
+
+	svc.Deliver(t.Context())
+
+	if repo.get(1).delivered || repo.get(2).delivered {
+		t.Fatal("expected entries to stay undelivered")
+	}
+	if n := len(msg.received()); n != 2 {
+		t.Fatalf("expected the pass to go on after a database error: 2 requests, got %d", n)
+	}
+
+	repo.set(func(f *fakeOutboxRepository) { f.markErr = nil })
+	svc.Deliver(t.Context())
+
+	if !repo.get(1).delivered || !repo.get(2).delivered {
+		t.Fatal("expected entries to be delivered after the database is back")
+	}
+}
+
+// A panic inside a pass does not leave Deliver; the next pass works.
+func TestDeliver_PanicThenRecovery(t *testing.T) {
+	msg := &fakeMessage{status: always(http.StatusCreated)}
+	srv := httptest.NewServer(msg)
+	defer srv.Close()
+
+	repo := &fakeOutboxRepository{panics: 1}
+	repo.add(newEntry(1))
+	svc := outbox.New(repo, srv.URL)
+
+	svc.Deliver(t.Context()) // must not panic
+
+	if repo.get(1).delivered {
+		t.Fatal("expected entry to stay undelivered after a panic")
+	}
+
+	svc.Deliver(t.Context())
+
+	if !repo.get(1).delivered {
+		t.Fatal("expected entry to be delivered by the pass after a panic")
+	}
+}
+
+// The first pass of Run panics: Run keeps going and the next pass
+// (one poll interval later) delivers.
+func TestRun_SurvivesPanic(t *testing.T) {
+	t.Parallel()
+
+	msg := &fakeMessage{status: always(http.StatusCreated)}
+	srv := httptest.NewServer(msg)
+	defer srv.Close()
+
+	repo := &fakeOutboxRepository{panics: 1}
+	repo.add(newEntry(1))
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		outbox.New(repo, srv.URL).Run(ctx)
+		close(done)
+	}()
+
+	deadline := time.Now().Add(15 * time.Second)
+	for !repo.get(1).delivered {
+		select {
+		case <-done:
+			t.Fatal("expected Run to keep going after a panic")
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expected entry to be delivered by a pass after the panic")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("expected Run to return after cancel")
 	}
 }
 

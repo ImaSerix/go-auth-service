@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -33,7 +34,14 @@ func New(entries OutboxRepository, messageURL string) *outboxService {
 	return &outboxService{
 		entries:    entries,
 		messageURL: strings.TrimRight(messageURL, "/"),
-		client:     &http.Client{Timeout: requestTimeout},
+		client: &http.Client{
+			Timeout: requestTimeout,
+			// Redirects are not followed: the answer to the POST itself decides,
+			// so any 3xx is a failed attempt.
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 
@@ -56,8 +64,15 @@ func (obs *outboxService) Run(ctx context.Context) {
 
 // Deliver makes one pass: takes up to batchSize undelivered entries in id order
 // and tries to send each of them once. A failed entry is logged, stays
-// undelivered and does not stop the pass.
+// undelivered and does not stop the pass. A panic inside the pass is logged
+// and ends only this pass: the process and the next passes go on.
 func (obs *outboxService) Deliver(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("outbox: panic in delivery pass: %v\n%s", r, debug.Stack())
+		}
+	}()
+
 	entries, err := obs.entries.ListUndelivered(ctx, batchSize)
 	if err != nil {
 		log.Printf("outbox: list undelivered entries: %v", err)
