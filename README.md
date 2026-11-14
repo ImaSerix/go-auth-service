@@ -219,7 +219,6 @@ If a refresh token is compromised, an attacker may obtain new access tokens unti
 
 ## What is intentionally missing
 
-- Header-based authentication (Authorization header support)
 - Advanced role/permission system (only basic roles are supported)
 - OAuth2, social login, MFA
 - Fine-grained authorization policies
